@@ -27,10 +27,12 @@ for i in range(num_requests):
         print(f"Reply from {serverName}: bytes={len(modifiedMessage)} time={rtt:.0f}ms TTL=55")
         rtt_values.append(rtt)
         packets_received += 1
-    except timeout as e:
-        print(f"Request timed out: {e}")
-        packets_lost += 1  # Count timeout as a lost packet
-        continue
+    except TimeoutError:
+        print("Request timed out")
+        pass
+        #print(f"Request timed out: {e}")
+        #packets_lost += 1  # Count timeout as a lost packet
+        #continue
 
     packets_sent += 1
 
