@@ -1,54 +1,52 @@
+# Receiver
+
+# Improved Receiver (Router) Script
+
 import socket
 import time
 import random
 
-# Constants
-serverPort = 12000
-ttl_limit = 7
+# List of all router port numbers
+all_routers = list(range(12000, 12016))  # 16 ports from 12000 to 12015
 
-# Initialize the routing table with an empty list
-routing_table = []
-
-def forward_packet(ttl, dest_id):
-    serverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    serverSocket.bind(('127.0.0.1', serverPort))
-    forward_message = f"{ttl - 1},{dest_id}"
-    serverSocket.sendto(forward_message.encode(), ('127.0.0.1', serverPort))
-    serverSocket.close()
+# Initialize the routing table with static entries for next_hop
+routing_table = {i: all_routers[(all_routers.index(i) + 1) % len(all_routers)]
+                 for i in all_routers}
 
 def main():
-    print("Receiver is ready to receive")
+    print("Router is running")
 
-    while True:
+    # Each router binds its own port
+    for serverPort in all_routers:
         serverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         serverSocket.bind(('127.0.0.1', serverPort))
-        message, clientAddress = serverSocket.recvfrom(1024)
-        ttl, dest_id = message.decode().split(',')
-        ttl = int(ttl)
+
+        while True:
+            message, clientAddress = serverSocket.recvfrom(1024)
+            ttl, dest_id = (int(i) for i in message.decode().split(','))
+
+            # Check if TTL has expired
+            if ttl <= 0:
+                print(f"Packet from {clientAddress[1]} dropped (TTL expired)")
+                continue
+
+            # If packet should be dropped
+            if random.random() >= 0.95:  # 5% drop rate
+                print(f"Packet from {clientAddress[1]} dropped (Packet loss)")
+                continue
+
+            # If we are the last hop or the destination, send answer back to sender
+            if ttl == 1 or serverPort == dest_id:
+                answer = f"{serverPort},{time.time()}"
+                serverSocket.sendto(answer.encode(), clientAddress)
+                print(f"Answered to sender from port {clientAddress[1]}")
+            else:  
+                print(f"Packet from {clientAddress[1]} forwarded (TTL={ttl - 1})")
+                next_router = routing_table[serverPort] # Choose next router based on routing table
+                time.sleep(0.1)  # delay before sending to next router
+                serverSocket.sendto(message.encode(), ('127.0.0.1', next_router))
+
         serverSocket.close()
-
-        # Check if TTL has expired
-        if ttl <= 0:
-            print("Packet dropped (TTL expired)")
-            continue
-
-        # Simulate forwarding to a random router
-        forward_packet(ttl, dest_id)
-        print(f"Packet forwarded to a random router")
-
-        # Send back the router port number to the sender
-        serverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        serverSocket.bind(('127.0.0.1', serverPort))
-        serverSocket.sendto(str(serverPort).encode(), clientAddress)
-        serverSocket.close()
-
-        # Record the sender's IP address in the routing table
-        if clientAddress[0] not in routing_table:
-            routing_table.append(clientAddress[0])
-
-        # Exit the loop if the routing table has reached its limit
-        if len(routing_table) >= ttl_limit:
-            break
 
 if __name__ == "__main__":
     main()
