@@ -1,11 +1,16 @@
+import argparse
 from socket import *
 import time
+
+parser = argparse.ArgumentParser(description='Ping client')
+parser.add_argument('-n', type=int, default=4, help='Number of requests')
+args = parser.parse_args()
 
 serverName = '127.0.0.1'
 serverPort = 12000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 
-num_requests = 4
+num_requests = args.n
 timeout = 1  # 1 second timeout
 
 packets_sent = 0
